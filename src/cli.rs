@@ -295,7 +295,7 @@ impl Cli {
             output.clone(),
             compression_type,
             level,
-        ).with_keypair(keypair);
+        ).with_keypair(keypair.clone());
 
         let mut writer = if let Some(base) = &args.base {
             writer.with_base(base)?
@@ -304,6 +304,29 @@ impl Cli {
         };
 
         writer.write()?;
+
+        // Generate .hash.json sidecar
+        if let Some(pb) = &pb {
+            pb.println(format!("Generating .hash.json sidecar..."));
+        } else {
+            println!("Generating .hash.json sidecar...");
+        }
+        match crate::hashjson::create_hash_json(&output, &keypair) {
+            Ok(sidecar) => {
+                if let Some(pb) = &pb {
+                    pb.println(format!("Created {}", sidecar.display()));
+                } else {
+                    println!("Created {}", sidecar.display());
+                }
+            }
+            Err(e) => {
+                if let Some(pb) = &pb {
+                    pb.println(format!("Warning: failed to create hash.json: {}", e));
+                } else {
+                    eprintln!("Warning: failed to create hash.json: {}", e);
+                }
+            }
+        }
 
         if let Some(pb) = &pb {
             pb.finish_with_message(format!("Created {}", output.display()));
@@ -417,6 +440,21 @@ impl Cli {
             return Err(anyhow!("Key archive does not exist: {}", args.key.display()));
         }
 
+        // Load the public key from the key archive
+        let public_key = import_public_key(&args.key)?;
+
+        // Verify the .hash.json sidecar: hash match + signature
+        match crate::hashjson::verify_hash_json(&args.archive, &public_key) {
+            Ok(()) => {
+                println!("\u{2713} Archive verified: blake3 hash matches, signature valid");
+            }
+            Err(e) => {
+                eprintln!("\u{2717} {}", e);
+                return Err(e);
+            }
+        }
+
+        // Verify the archive's internal signature and file hashes
         let result = crate::verify::verify_archive(&args.archive, Some(args.key.as_path()), true)?;
 
         if result.valid {
