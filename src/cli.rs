@@ -124,8 +124,9 @@ pub enum KeyCommands {
     /// Export public key as a vfsx archive
     Export {
         /// Output path for key archive
+        /// Output path for key archive (default: pubkey.vfsx)
         #[arg(short, long, value_name = "FILE")]
-        output: PathBuf,
+        output: Option<PathBuf>,
 
         /// Owner name for metadata
         #[arg(long, value_name = "NAME")]
@@ -446,6 +447,10 @@ impl Cli {
                 }
             }
             KeyCommands::Export { output, owner } => {
+                let output = output.unwrap_or_else(|| {
+                    let cwd = std::env::current_dir().unwrap_or_default();
+                    cwd.join("pubkey.vfsx")
+                });
                 export_public_key(&output, owner)?;
                 println!("Exported public key to {}", output.display());
             }

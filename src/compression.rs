@@ -20,7 +20,25 @@ impl CompressionType {
             "zst" => CompressionType::Zstd,
             "xz" => CompressionType::Xz,
             "gz" => CompressionType::Gzip,
-            _ => CompressionType::None,
+            _ => {
+                // Check for compound extension like .vfsx.tar.zst where the
+                // final component might be .vfsx (key export archives)
+                let path_str = path.to_string_lossy();
+                if path_str.ends_with(".vfsx.tar.zst") {
+                    CompressionType::Zstd
+                } else if path_str.ends_with(".vfsx.tar.xz") {
+                    CompressionType::Xz
+                } else if path_str.ends_with(".vfsx.tar.gz") {
+                    CompressionType::Gzip
+                } else if path_str.ends_with(".vfsx.tar") {
+                    CompressionType::None
+                } else if path_str.ends_with(".vfsx") {
+                    // Key archives are always zstd-compressed
+                    CompressionType::Zstd
+                } else {
+                    CompressionType::None
+                }
+            }
         }
     }
 
