@@ -404,6 +404,11 @@ impl ArchiveWriter {
             let path = entry.path();
             let rel_path = path.strip_prefix(source_dir)?.to_path_buf();
 
+            // Skip the output file itself to avoid self-inclusion
+            if path == &self.output_path {
+                continue;
+            }
+
             if entry.file_type().is_dir() {
                 // Skip the root source directory itself (empty relative path)
                 if rel_path.as_os_str().is_empty() {
