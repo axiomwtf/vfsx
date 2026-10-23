@@ -1,0 +1,6 @@
+target/
+*.vfsx.tar.zst
+*.vfsx.tar.xz
+*.vfsx.tar.gz
+start
+end
