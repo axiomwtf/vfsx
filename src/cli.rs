@@ -261,6 +261,13 @@ impl Cli {
                 let source_name = args.source
                     .file_name()
                     .map(|n| n.to_string_lossy().into_owned())
+                    .or_else(|| {
+                        // Handle "." and relative paths — canonicalize to get the real dir name
+                        args.source
+                            .canonicalize()
+                            .ok()
+                            .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
+                    })
                     .unwrap_or_else(|| "archive".to_string());
                 if ext == "tar" {
                     args.source.with_file_name(format!("{}.vfsx.tar", source_name))
