@@ -46,17 +46,16 @@ The `.vfsx` component is **part of the stem**, not an independent extension. For
 |--------|------|-------|-------------|
 | 0 | 4 | `magic` | `b"VFSX"` (0x56 0x46 0x53 0x58) |
 | 4 | 2 | `version` | Format version (current: 1) |
-| 6 | 2 | `reserved` | Must be 0 |
-| 8 | 4 | `flags` | Bit flags (see below) |
-| 12 | 8 | `timestamp` | Unix timestamp (seconds) |
-| 20 | 8 | `manifest_offset` | Byte offset from start of file |
-| 28 | 8 | `manifest_size` | Size of manifest JSON in bytes |
-| 36 | 8 | `index_offset` | Byte offset from start of file |
-| 44 | 8 | `index_size` | Size of index JSON in bytes |
-| 52 | 8 | `payload_offset` | Byte offset from start of file |
-| 60 | 8 | `payload_size` | Size of tar payload in bytes |
-| 68 | 32 | `public_key_hash` | blake3 hash of Ed25519 public key |
-| 100 | 28 | `padding` | Zero padding to 128 bytes |
+| 6 | 4 | `flags` | Bit flags (see below) |
+| 10 | 8 | `timestamp` | Unix timestamp (seconds) |
+| 18 | 8 | `manifest_offset` | Byte offset from start of file |
+| 26 | 8 | `manifest_size` | Size of manifest JSON in bytes |
+| 34 | 8 | `index_offset` | Byte offset from start of file |
+| 42 | 8 | `index_size` | Size of index JSON in bytes |
+| 50 | 8 | `payload_offset` | Byte offset from start of file |
+| 58 | 8 | `payload_size` | Size of tar payload in bytes |
+| 66 | 32 | `public_key_hash` | blake3 hash of Ed25519 public key |
+| 98 | 30 | `padding` | Zero padding to 128 bytes |
 
 ### Flags (u32, bitfield)
 

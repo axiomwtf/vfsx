@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::os::unix::fs::MetadataExt;
@@ -158,7 +158,7 @@ pub struct FileEntry {
     pub mtime_nsec: u32,
     pub size: u64,
     pub blake3_hash: Blake3Hash,
-    pub xattrs: HashMap<String, Vec<u8>>,
+    pub xattrs: BTreeMap<String, Vec<u8>>,
     pub chunk_refs: Vec<ChunkRef>,
     pub is_symlink: bool,
     pub symlink_target: Option<String>,
@@ -380,6 +380,9 @@ impl ArchiveWriter {
 
     fn write_payload(&self) -> Result<(Vec<u8>, Manifest, Index)> {
         let mut manifest = Manifest::new();
+        if let Some(base) = &self.base_archive {
+            manifest.base_archive_hash = Some(Blake3Hash::from_file(&base.archive_path)?);
+        }
         let mut index = Index::new();
         let mut total_size = 0u64;
         let mut total_files = 0u64;
@@ -547,8 +550,8 @@ impl ArchiveWriter {
         Ok((compressed, manifest, index))
     }
 
-    fn read_xattrs(path: &Path) -> Result<HashMap<String, Vec<u8>>> {
-        let mut xattrs = HashMap::new();
+    fn read_xattrs(path: &Path) -> Result<BTreeMap<String, Vec<u8>>> {
+        let mut xattrs = BTreeMap::new();
         #[cfg(target_os = "linux")]
         {
             for name in xattr::list(path)? {
@@ -617,6 +620,15 @@ impl ArchiveReader {
         file.read_exact(&mut compressed)?;
         let decompressed = self.decompression.decompress(&compressed)?;
 
+        let has_refs = self.manifest.entries.iter().any(|e| {
+            e.chunk_refs.first().map_or(false, |c| c.offset == 0 && c.length == 0)
+        });
+        if has_refs {
+            anyhow::bail!(
+                "archive references files stored in its base archive; extract it with the chain extractor (incremental) instead"
+            );
+        }
+
         // Feed the decompressed tar stream to tar::Archive
         let cursor = std::io::Cursor::new(decompressed);
         let mut archive = tar::Archive::new(cursor);
@@ -667,8 +679,9 @@ impl ArchiveReader {
 
         let chunk = &entry.chunk_refs[0];
 
-        // Reference entries have no inline data
-        if chunk.length == 0 {
+        // Reference entries have no inline data (offset 0, length 0).
+        // Empty files also have length 0 but a real offset, so they read as empty.
+        if chunk.length == 0 && chunk.offset == 0 {
             anyhow::bail!("Reference entry has no inline data: {}", entry.path);
         }
 
