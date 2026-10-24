@@ -305,29 +305,6 @@ impl Cli {
 
         writer.write()?;
 
-        // Generate .hash.json sidecar
-        if let Some(pb) = &pb {
-            pb.println(format!("Generating .hash.json sidecar..."));
-        } else {
-            println!("Generating .hash.json sidecar...");
-        }
-        match crate::hashjson::create_hash_json(&output, &keypair) {
-            Ok(sidecar) => {
-                if let Some(pb) = &pb {
-                    pb.println(format!("Created {}", sidecar.display()));
-                } else {
-                    println!("Created {}", sidecar.display());
-                }
-            }
-            Err(e) => {
-                if let Some(pb) = &pb {
-                    pb.println(format!("Warning: failed to create hash.json: {}", e));
-                } else {
-                    eprintln!("Warning: failed to create hash.json: {}", e);
-                }
-            }
-        }
-
         if let Some(pb) = &pb {
             pb.finish_with_message(format!("Created {}", output.display()));
         } else {
@@ -443,8 +420,8 @@ impl Cli {
         // Load the public key from the key archive
         let public_key = import_public_key(&args.key)?;
 
-        // Verify the .hash.json sidecar: hash match + signature
-        match crate::hashjson::verify_hash_json(&args.archive, &public_key) {
+        // Verify the embedded .hash.json: hash match + signature
+        match crate::hashjson::verify_embedded_hash_json(&args.archive, &public_key) {
             Ok(()) => {
                 println!("\u{2713} Archive verified: blake3 hash matches, signature valid");
             }

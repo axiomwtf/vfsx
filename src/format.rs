@@ -374,6 +374,10 @@ impl ArchiveWriter {
         writer.seek(SeekFrom::End(0))?;
         writer.write_all(&signature)?;
         writer.flush()?;
+        drop(writer);
+
+        // Embed the signed .hash.json as a trailer after the signature
+        crate::hashjson::embed_hash_json(&self.output_path, kp)?;
 
         Ok(())
     }
