@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use flate2::write::GzEncoder;
 use flate2::Compression as GzCompression;
 use std::io::{Read, Write};
@@ -14,31 +14,17 @@ pub enum CompressionType {
 }
 
 impl CompressionType {
-    pub fn from_extension(path: &std::path::Path) -> Self {
-        let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
-        match ext {
-            "zst" => CompressionType::Zstd,
-            "xz" => CompressionType::Xz,
-            "gz" => CompressionType::Gzip,
-            _ => {
-                // Check for compound extension like .vfsx.tar.zst where the
-                // final component might be .vfsx (key export archives)
-                let path_str = path.to_string_lossy();
-                if path_str.ends_with(".vfsx.tar.zst") {
-                    CompressionType::Zstd
-                } else if path_str.ends_with(".vfsx.tar.xz") {
-                    CompressionType::Xz
-                } else if path_str.ends_with(".vfsx.tar.gz") {
-                    CompressionType::Gzip
-                } else if path_str.ends_with(".vfsx.tar") {
-                    CompressionType::None
-                } else if path_str.ends_with(".vfsx") {
-                    // Key archives are always zstd-compressed
-                    CompressionType::Zstd
-                } else {
-                    CompressionType::None
-                }
-            }
+    /// Detect the compression of a payload from its magic bytes, so an
+    /// archive reads the same whatever its file is called.
+    pub fn sniff(data: &[u8]) -> Self {
+        if data.starts_with(&[0x28, 0xB5, 0x2F, 0xFD]) {
+            CompressionType::Zstd
+        } else if data.starts_with(&[0xFD, b'7', b'z', b'X', b'Z', 0x00]) {
+            CompressionType::Xz
+        } else if data.starts_with(&[0x1F, 0x8B]) {
+            CompressionType::Gzip
+        } else {
+            CompressionType::None
         }
     }
 
@@ -50,6 +36,14 @@ impl CompressionType {
             CompressionType::None => "",
         }
     }
+
+    pub fn default_level(&self) -> i32 {
+        match self {
+            CompressionType::Zstd => 3,
+            CompressionType::Xz | CompressionType::Gzip => 6,
+            CompressionType::None => 0,
+        }
+    }
 }
 
 pub struct Compressor {
@@ -59,133 +53,46 @@ pub struct Compressor {
 
 impl Compressor {
     pub fn new(compression_type: CompressionType, level: Option<i32>) -> Self {
-        let level = level.unwrap_or_else(|| match compression_type {
-            CompressionType::Zstd => 3,
-            CompressionType::Xz => 6,
-            CompressionType::Gzip => 6,
-            CompressionType::None => 0,
-        });
+        let level = level.unwrap_or_else(|| compression_type.default_level());
         Self { compression_type, level }
     }
 
     pub fn compress(&self, input: &[u8]) -> Result<Vec<u8>> {
         match self.compression_type {
-            CompressionType::Zstd => self.compress_zstd(input),
-            CompressionType::Xz => self.compress_xz(input),
-            CompressionType::Gzip => self.compress_gzip(input),
+            CompressionType::Zstd => {
+                let mut encoder = ZstdEncoder::new(Vec::new(), self.level)?;
+                encoder.write_all(input)?;
+                Ok(encoder.finish()?)
+            }
+            CompressionType::Xz => {
+                let mut encoder = XzEncoder::new(Vec::new(), self.level.clamp(0, 9) as u32);
+                encoder.write_all(input)?;
+                Ok(encoder.finish()?)
+            }
+            CompressionType::Gzip => {
+                let mut encoder =
+                    GzEncoder::new(Vec::new(), GzCompression::new(self.level.clamp(0, 9) as u32));
+                encoder.write_all(input)?;
+                Ok(encoder.finish()?)
+            }
             CompressionType::None => Ok(input.to_vec()),
         }
     }
-
-    pub fn compress_to_writer<W: Write>(&self, input: &[u8], mut writer: W) -> Result<()> {
-        match self.compression_type {
-            CompressionType::Zstd => {
-                let mut encoder = ZstdEncoder::new(&mut writer, self.level)?;
-                encoder.write_all(input)?;
-                encoder.finish()?;
-            }
-            CompressionType::Xz => {
-                let level: u32 = self.level.try_into().unwrap_or(6);
-                let mut encoder = XzEncoder::new(&mut writer, level);
-                encoder.write_all(input)?;
-                encoder.finish()?;
-            }
-            CompressionType::Gzip => {
-                let mut encoder = GzEncoder::new(&mut writer, GzCompression::new(self.level as u32));
-                encoder.write_all(input)?;
-                encoder.finish()?;
-            }
-            CompressionType::None => {
-                writer.write_all(input)?;
-            }
-        }
-        Ok(())
-    }
-
-    fn compress_zstd(&self, input: &[u8]) -> Result<Vec<u8>> {
-        let mut encoder = ZstdEncoder::new(Vec::new(), self.level)?;
-        encoder.write_all(input)?;
-        Ok(encoder.finish()?)
-    }
-
-    fn compress_xz(&self, input: &[u8]) -> Result<Vec<u8>> {
-        let level: u32 = self.level.try_into().unwrap_or(6);
-        let mut encoder = XzEncoder::new(Vec::new(), level);
-        encoder.write_all(input)?;
-        Ok(encoder.finish()?)
-    }
-
-    fn compress_gzip(&self, input: &[u8]) -> Result<Vec<u8>> {
-        let mut encoder = GzEncoder::new(Vec::new(), GzCompression::new(self.level as u32));
-        encoder.write_all(input)?;
-        Ok(encoder.finish()?)
-    }
 }
 
-pub struct Decompressor {
-    compression_type: CompressionType,
-}
-
-impl Decompressor {
-    pub fn new(compression_type: CompressionType) -> Self {
-        Self { compression_type }
+/// Decompress `input`, refusing to produce more than `limit` bytes so a
+/// small archive cannot expand into an unbounded allocation.
+pub fn decompress(input: &[u8], limit: u64) -> Result<Vec<u8>> {
+    let reader: Box<dyn Read + '_> = match CompressionType::sniff(input) {
+        CompressionType::Zstd => Box::new(zstd::stream::read::Decoder::new(input)?),
+        CompressionType::Xz => Box::new(xz2::read::XzDecoder::new(input)),
+        CompressionType::Gzip => Box::new(flate2::read::GzDecoder::new(input)),
+        CompressionType::None => Box::new(input),
+    };
+    let mut out = Vec::new();
+    reader.take(limit.saturating_add(1)).read_to_end(&mut out)?;
+    if out.len() as u64 > limit {
+        bail!("payload decompresses to more than the manifest allows ({} bytes)", limit);
     }
-
-    pub fn decompress(&self, input: &[u8]) -> Result<Vec<u8>> {
-        match self.compression_type {
-            CompressionType::Zstd => self.decompress_zstd(input),
-            CompressionType::Xz => self.decompress_xz(input),
-            CompressionType::Gzip => self.decompress_gzip(input),
-            CompressionType::None => Ok(input.to_vec()),
-        }
-    }
-
-    pub fn decompress_from_reader<R: Read>(&self, mut reader: R) -> Result<Vec<u8>> {
-        match self.compression_type {
-            CompressionType::Zstd => {
-                let mut decoder = zstd::stream::read::Decoder::new(reader)?;
-                let mut out = Vec::new();
-                decoder.read_to_end(&mut out)?;
-                Ok(out)
-            }
-            CompressionType::Xz => {
-                let mut decoder = xz2::read::XzDecoder::new(reader);
-                let mut out = Vec::new();
-                decoder.read_to_end(&mut out)?;
-                Ok(out)
-            }
-            CompressionType::Gzip => {
-                let mut decoder = flate2::read::GzDecoder::new(reader);
-                let mut out = Vec::new();
-                decoder.read_to_end(&mut out)?;
-                Ok(out)
-            }
-            CompressionType::None => {
-                let mut out = Vec::new();
-                reader.read_to_end(&mut out)?;
-                Ok(out)
-            }
-        }
-    }
-
-    fn decompress_zstd(&self, input: &[u8]) -> Result<Vec<u8>> {
-        let mut decoder = zstd::stream::read::Decoder::new(input)?;
-        let mut out = Vec::new();
-        decoder.read_to_end(&mut out)?;
-        Ok(out)
-    }
-
-    fn decompress_xz(&self, input: &[u8]) -> Result<Vec<u8>> {
-        let mut decoder = xz2::read::XzDecoder::new(input);
-        let mut out = Vec::new();
-        decoder.read_to_end(&mut out)?;
-        Ok(out)
-    }
-
-    fn decompress_gzip(&self, input: &[u8]) -> Result<Vec<u8>> {
-        let mut decoder = flate2::read::GzDecoder::new(input);
-        let mut out = Vec::new();
-        decoder.read_to_end(&mut out)?;
-        Ok(out)
-    }
+    Ok(out)
 }
