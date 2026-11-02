@@ -4,3 +4,6 @@ target/
 *.vfsx.tar.gz
 start
 end
+.env
+*.pem
+*.key
