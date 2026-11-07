@@ -147,7 +147,7 @@ The binary is `target/release/vfsx`.
 
 ## Spec
 
-The full format specification is in [`SPEC.md`](./SPEC.md).
+The full format specification is in [`vfsxspec.md`](./vfsxspec.md).
 
 ## License
 
