@@ -167,7 +167,7 @@ Default: Zstandard at level 3. Readers detect the compression from the payload's
 
 The signature is 64 bytes (Ed25519) and is the last thing in the file.
 
-**Signed data:** every byte of the file before the signature — header, payload, manifest and index.
+**Signed data:** every byte of the file before the signature - header, payload, manifest and index.
 
 **Verification:**
 ```rust
@@ -183,15 +183,15 @@ The header's `public_key_hash` (blake3 of public key) identifies the signing key
 
 ### Private Key Storage
 
-`~/.config/vfsx/keys/identity.priv` — 32 bytes: Ed25519 seed
+`~/.config/vfsx/keys/identity.priv` - 32 bytes: Ed25519 seed
 
 ### Public Key Storage
 
-`~/.config/vfsx/keys/identity.pub` — 32 bytes: raw Ed25519 public key
+`~/.config/vfsx/keys/identity.pub` - 32 bytes: raw Ed25519 public key
 
 ### Imported Keys
 
-`~/.config/vfsx/keys/trusted/<key_id>.pub` — 32 bytes each, written by `vfsx key import`. `verify` and `extract` look up the archive's key id here (and the local identity) when no `-k` is given.
+`~/.config/vfsx/keys/trusted/<key_id>.pub` - 32 bytes each, written by `vfsx key import`. `verify` and `extract` look up the archive's key id here (and the local identity) when no `-k` is given.
 
 ### Public Key Export (`key.vfsx`)
 
@@ -239,10 +239,10 @@ vfsx key import KEY
 vfsx key show
 ```
 
-- `-c, --compression` — compression algorithm (default: `zstd`)
-- `--level N` — compression level (zstd: 1–22, xz/gzip: 1–9)
-- `--base ARCHIVE` — base archive for delta creation and extraction
-- `-k, --key KEY` — public key archive; defaults to the local identity or an imported key matching the archive
+- `-c, --compression` - compression algorithm (default: `zstd`)
+- `--level N` - compression level (zstd: 1-22, xz/gzip: 1-9)
+- `--base ARCHIVE` - base archive for delta creation and extraction
+- `-k, --key KEY` - public key archive; defaults to the local identity or an imported key matching the archive
 
 ---
 

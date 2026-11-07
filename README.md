@@ -6,16 +6,16 @@
 
 **One directory in. One verified archive out.**
 
-vfsx is a **signed, content-addressed virtual filesystem archive** by [Axiom](https://github.com/axiomwtf). A single directory is packed into a `.vfsx.tar.*` archive with an Ed25519 signature, embedded manifest, and content-addressed index. Verify integrity with one command — no separate signature or manifest files.
+vfsx is a **signed, content-addressed virtual filesystem archive** by [Axiom](https://github.com/axiomwtf). A single directory is packed into a `.vfsx.tar.*` archive with an Ed25519 signature, embedded manifest, and content-addressed index. Verify integrity with one command - no separate signature or manifest files.
 
-> **Status:** `0.2.0` — early development.
+> **Status:** `0.2.0` - early development.
 
 ## Why
 
 - **One output, always verified.** The result is a single `.vfsx.tar.*` file. Every archive carries its manifest, index, and an Ed25519 signature. Verification is a single command.
 - **No sidecars.** Manifest, index, and signature are packed inside the archive. Nothing else is written next to it, and nothing outside it is needed to read it.
 - **Keys on first run.** `vfsx create` auto-generates your Ed25519 identity at `~/.config/vfsx/keys/`. Export the public key as a `.vfsx` archive for others to verify yours.
-- **Extended attributes preserved.** xattrs, permissions, mtime and symlinks — all captured and restored.
+- **Extended attributes preserved.** xattrs, permissions, mtime and symlinks - all captured and restored.
 - **Deduplicated.** Identical files inside an archive are stored once.
 - **Incremental support.** Create delta archives with `--base` that store only what the base doesn't already hold.
 - **Safe to extract.** Paths that would leave the destination are refused, nothing is written through a symlink, and every file is checked against its hash.
@@ -23,7 +23,7 @@ vfsx is a **signed, content-addressed virtual filesystem archive** by [Axiom](ht
 ## Example
 
 ```bash
-# First run — generates your signing key automatically
+# First run - generates your signing key automatically
 vfsx create ./myproject -o myproject.vfsx.tar.zst
 
 # Export your public key for others to verify your archives
@@ -111,8 +111,8 @@ vfsx key show           # show public key + hash
 ```
 
 `key.vfsx` is a valid vfsx archive, signed by the key it carries, containing:
-- `pubkey.bin` — raw 32-byte Ed25519 public key
-- `metadata.json` — `{ "algorithm": "Ed25519", "key_id": "<blake3>", "created_timestamp": N, "owner": "..." }`
+- `pubkey.bin` - raw 32-byte Ed25519 public key
+- `metadata.json` - `{ "algorithm": "Ed25519", "key_id": "<blake3>", "created_timestamp": N, "owner": "..." }`
 
 ## CLI Reference
 
@@ -128,10 +128,10 @@ vfsx key show
 ```
 
 **Options:**
-- `-c, --compression` — compression algorithm (default: `zstd`)
-- `--level N` — compression level (zstd: 1–22, xz/gzip: 1–9)
-- `--base ARCHIVE` — base archive for delta creation and extraction
-- `-k, --key KEY` — public key archive; without it, your own key or an imported key matching the archive is used. `extract` warns and skips the signature check if no key is found.
+- `-c, --compression` - compression algorithm (default: `zstd`)
+- `--level N` - compression level (zstd: 1-22, xz/gzip: 1-9)
+- `--base ARCHIVE` - base archive for delta creation and extraction
+- `-k, --key KEY` - public key archive; without it, your own key or an imported key matching the archive is used. `extract` warns and skips the signature check if no key is found.
 
 ## Building from Source
 
