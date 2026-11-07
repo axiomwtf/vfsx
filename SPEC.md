@@ -1,6 +1,9 @@
 # vfsx Format Specification
 **Version:** 0.2.0
-**Ownership:** vfsx is owned by AXIOM ![Axiom Logo](./axiom.svg)
+**Ownership:** vfsx is owned by AXIOM ![Axiom Logo](https://axiomwtf.github.io/axiom.svg)
+**Status:** Early development.
+**License:** MPL-2.0
+**Last updated:** 2026-11-06
 ---
 
 ## 1. Overview
