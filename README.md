@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./axiom.svg" alt="vfsx" width="320">
+  <img src="./vfsx.svg" alt="vfsx" width="320">
 </p>
 
 # vfsx
