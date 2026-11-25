@@ -2,7 +2,7 @@
 **Version:** 0.2.0
 **Ownership:** vfsx is owned by AXIOM ![Axiom Logo](./axiom.svg)
 **Status:** Early development.
-**License:** MPL-2.0
+**License:** Apache-2.0
 **Last updated:** 2026-11-20
 ---
 
