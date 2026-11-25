@@ -3,7 +3,7 @@ name = "vfsx"
 version = "0.2.0"
 edition = "2024"
 description = "Signed, content-addressed virtual filesystem archive format"
-license = "MPL-2.0"
+license = "Apache-2.0"
 repository = "https://github.com/axiomwtf/vfsx"
 homepage = "https://axiomwtf.github.io/vfsx.html"
 
